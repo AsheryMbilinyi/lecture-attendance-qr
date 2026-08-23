@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lecture Attendance QR</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<style>
+  :root{
+    --bg:#0B0F14;
+    --panel:#11161D;
+    --line:#232B36;
+    --ink:#EAF0F6;
+    --ink-dim:#8494A6;
+    --accent:#4FD1A5;
+    --accent-dim:#2E6E58;
+    --warn:#F2A93B;
+    --danger:#E15A5A;
+    --mono:'IBM Plex Mono','SF Mono',ui-monospace,Consolas,monospace;
+    --sans:'Inter',ui-sans-serif,system-ui,-apple-system,sans-serif;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;}
+  .wrap{
+    background:var(--bg);
+    color:var(--ink);
+    font-family:var(--sans);
+    min-height:100vh;
+    padding:28px 20px 40px;
+  }
+  .board{
+    max-width:1180px;
+    margin:0 auto;
+  }
+  .topline{
+    display:flex;
+    justify-content:space-between;
+    align-items:baseline;
+    border-bottom:1px solid var(--line);
+    padding-bottom:14px;
+    margin-bottom:22px;
+    gap:16px;
+    flex-wrap:wrap;
+  }
+  .brand{
+    display:flex;
+    align-items:baseline;
+    gap:10px;
+  }
+  .brand .dot{
+    width:9px;height:9px;border-radius:50%;
+    background:var(--accent);
+    box-shadow:0 0 10px var(--accent);
+  }
+  .brand h1{
+    font-size:15px;
+    letter-spacing:.14em;
+    text-transform:uppercase;
+    font-weight:600;
+    color:var(--ink-dim);
+    margin:0;
+  }
+  #courseLabel{
+    font-family:var(--mono);
+    font-size:15px;
+    color:var(--ink);
+    letter-spacing:.02em;
+  }
+  .status{
+    font-family:var(--mono);
+    font-size:12px;
+    color:var(--ink-dim);
+    letter-spacing:.05em;
+  }
+  .status b{color:var(--accent);font-weight:600;}
+
+  .grid{
+    display:grid;
+    grid-template-columns:1fr 340px;
+    gap:24px;
+  }
+  @media (max-width:860px){
+    .grid{grid-template-columns:1fr;}
+  }
+
+  .panel{
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:10px;
+  }
+
+  /* main gate */
+  .gate{
+    padding:36px;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:20px;
+    position:relative;
+  }
+  .ringwrap{
+    position:relative;
+    width:340px;
+    height:340px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+  }
+  svg.ring{
+    position:absolute;
+    inset:0;
+    transform:rotate(-90deg);
+  }
+  svg.ring circle{
+    fill:none;
+    stroke-width:4;
+  }
+  .ring-bg{stroke:var(--line);}
+  .ring-fg{
+    stroke:var(--accent);
+    stroke-linecap:round;
+    transition:stroke-dashoffset 1s linear, stroke .3s ease;
+  }
+  #qrbox{
+    background:#fff;
+    padding:14px;
+    border-radius:8px;
+    width:288px;
+    height:288px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+  }
+  #qrbox img, #qrbox canvas{ display:block; }
+
+  .token-row{
+    display:flex;
+    align-items:center;
+    gap:14px;
+    flex-wrap:wrap;
+    justify-content:center;
+  }
+  .token-label{
+    font-size:11px;
+    letter-spacing:.14em;
+    text-transform:uppercase;
+    color:var(--ink-dim);
+  }
+  .token{
+    font-family:var(--mono);
+    font-size:34px;
+    font-weight:600;
+    letter-spacing:.12em;
+    color:var(--ink);
+  }
+  .countdown{
+    font-family:var(--mono);
+    font-size:13px;
+    color:var(--ink-dim);
+  }
+  .countdown b{color:var(--warn);}
+
+  .controls{
+    display:flex;
+    gap:10px;
+    margin-top:6px;
+    flex-wrap:wrap;
+    justify-content:center;
+  }
+  button{
+    font-family:var(--sans);
+    font-size:13px;
+    font-weight:600;
+    border-radius:6px;
+    padding:10px 18px;
+    cursor:pointer;
+    border:1px solid var(--line);
+    background:transparent;
+    color:var(--ink);
+    transition:border-color .15s ease, background .15s ease;
+  }
+  button:hover{border-color:var(--accent);}
+  button:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
+  button.primary{
+    background:var(--accent);
+    color:#06120D;
+    border-color:var(--accent);
+  }
+  button.primary:hover{background:#63e0b4;}
+  button.danger:hover{border-color:var(--danger);}
+  button:disabled{opacity:.4;cursor:not-allowed;}
+
+  select, input[type=text]{
+    font-family:var(--mono);
+    font-size:13px;
+    background:var(--bg);
+    border:1px solid var(--line);
+    color:var(--ink);
+    border-radius:6px;
+    padding:8px 10px;
+    width:100%;
+  }
+  select:focus-visible, input:focus-visible{outline:2px solid var(--accent);outline-offset:1px;}
+
+  /* side panel */
+  .side{
+    display:flex;
+    flex-direction:column;
+    padding:20px;
+    gap:18px;
+    height:fit-content;
+  }
+  .side h2{
+    font-size:11px;
+    letter-spacing:.14em;
+    text-transform:uppercase;
+    color:var(--ink-dim);
+    margin:0 0 10px;
+    border-bottom:1px solid var(--line);
+    padding-bottom:8px;
+  }
+  .field{
+    display:flex;
+    flex-direction:column;
+    gap:6px;
+    margin-bottom:12px;
+  }
+  .field label{
+    font-size:11px;
+    color:var(--ink-dim);
+  }
+  .hint{
+    font-size:11px;
+    color:var(--ink-dim);
+    line-height:1.5;
+  }
+  details summary{
+    cursor:pointer;
+    font-size:12px;
+    color:var(--accent);
+    margin-top:4px;
+  }
+  details[open] summary{margin-bottom:8px;}
+
+  .log{
+    max-height:260px;
+    overflow-y:auto;
+    font-family:var(--mono);
+    font-size:12px;
+  }
+  .log table{width:100%;border-collapse:collapse;}
+  .log th{
+    text-align:left;
+    color:var(--ink-dim);
+    font-weight:500;
+    padding:4px 6px;
+    border-bottom:1px solid var(--line);
+    position:sticky;top:0;background:var(--panel);
+  }
+  .log td{
+    padding:5px 6px;
+    border-bottom:1px solid #1a212a;
+    color:var(--ink);
+  }
+  .log-empty{
+    color:var(--ink-dim);
+    font-size:12px;
+    padding:8px 2px;
+  }
+  .side .controls{justify-content:flex-start;}
+
+  @media (prefers-reduced-motion: reduce){
+    .ring-fg{transition:none;}
+  }
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <div class="board">
+    <div class="topline">
+      <div class="brand">
+        <span class="dot"></span>
+        <h1>Attendance Gate</h1>
+        <span id="courseLabel">— unnamed course —</span>
+      </div>
+      <div class="status" id="statusLine">STOPPED · press start</div>
+    </div>
+
+    <div class="grid">
+      <div class="panel gate">
+        <div class="ringwrap">
+          <svg class="ring" width="340" height="340" viewBox="0 0 340 340">
+            <circle class="ring-bg" cx="170" cy="170" r="160"></circle>
+            <circle class="ring-fg" id="ringFg" cx="170" cy="170" r="160"
+                    stroke-dasharray="1005.3" stroke-dashoffset="0"></circle>
+          </svg>
+          <div id="qrbox"></div>
+        </div>
+
+        <div class="token-row">
+          <div>
+            <div class="token-label">Current code</div>
+            <div class="token" id="tokenDisplay">——————</div>
+          </div>
+        </div>
+        <div class="countdown" id="countdownLine">next code in <b id="secsLeft">--</b>s</div>
+
+        <div class="controls">
+          <button class="primary" id="startBtn">Start lecture</button>
+          <button id="pauseBtn" disabled>Pause</button>
+          <button class="danger" id="stopBtn" disabled>Stop</button>
+        </div>
+      </div>
+
+      <div class="panel side">
+        <div>
+          <h2>Setup</h2>
+          <div class="field">
+            <label for="courseInput">Course / section label</label>
+            <input type="text" id="courseInput" placeholder="e.g. CSC 445 — Sec A1">
+          </div>
+          <div class="field">
+            <label for="intervalSelect">Code refresh rate</label>
+            <select id="intervalSelect">
+              <option value="15">Every 15 seconds</option>
+              <option value="20" selected>Every 20 seconds</option>
+              <option value="30">Every 30 seconds</option>
+              <option value="60">Every 60 seconds</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="urlTemplate">Form link template (optional)</label>
+            <input type="text" id="urlTemplate" placeholder="https://forms.gle/xxx?entry.123=CODE">
+            <div class="hint">Paste your Google Form's pre-filled link, then replace the code value with the literal text <code>CODE</code>. Leave blank to just display the raw code for testing.</div>
+          </div>
+          <div class="field">
+            <button id="copySetupBtn" style="width:100%;">Copy my setup link</button>
+            <div class="hint">Bundles the fields above into one URL. Bookmark it and it'll load pre-filled every time — one link per section/course, so nobody has to re-paste or risk mixing up another section's form.</div>
+          </div>
+          <details>
+            <summary>How to set this up in Google Forms</summary>
+            <div class="hint">
+              1. Create a form with fields for name, student ID, and a short-answer "Code" field.<br><br>
+              2. Open the form, click the ⋮ menu → "Get pre-filled link."<br><br>
+              3. Fill in sample name/ID, and type <code>CODE</code> literally into the Code field.<br><br>
+              4. Click "Get link," copy it, paste it above — this tool swaps <code>CODE</code> for the live token each refresh.<br><br>
+              5. After lecture, filter form responses to codes that appear in the session log on the right to catch late/stale submissions.
+            </div>
+          </details>
+        </div>
+
+        <div>
+          <h2>Session log</h2>
+          <div class="log" id="logWrap">
+            <div class="log-empty">Codes generated this session will appear here.</div>
+          </div>
+          <div class="controls" style="margin-top:10px;">
+            <button id="copyLogBtn" disabled>Copy as CSV</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  const startBtn = document.getElementById('startBtn');
+  const pauseBtn = document.getElementById('pauseBtn');
+  const stopBtn = document.getElementById('stopBtn');
+  const courseInput = document.getElementById('courseInput');
+  const courseLabel = document.getElementById('courseLabel');
+  const intervalSelect = document.getElementById('intervalSelect');
+  const urlTemplate = document.getElementById('urlTemplate');
+  const tokenDisplay = document.getElementById('tokenDisplay');
+  const secsLeft = document.getElementById('secsLeft');
+  const statusLine = document.getElementById('statusLine');
+  const ringFg = document.getElementById('ringFg');
+  const qrbox = document.getElementById('qrbox');
+  const logWrap = document.getElementById('logWrap');
+  const copyLogBtn = document.getElementById('copyLogBtn');
+  const copySetupBtn = document.getElementById('copySetupBtn');
+
+  // Load config from URL, if present — lets each section/prof bookmark
+  // their own pre-filled link with no shared state between sessions.
+  (function loadFromURL(){
+    const params = new URLSearchParams(window.location.search);
+    if(params.has('course')) courseInput.value = params.get('course');
+    if(params.has('interval') && ['15','20','30','60'].includes(params.get('interval'))){
+      intervalSelect.value = params.get('interval');
+    }
+    if(params.has('form')) urlTemplate.value = params.get('form');
+  })();
+
+  const CIRC = 2 * Math.PI * 160;
+  ringFg.setAttribute('stroke-dasharray', CIRC.toFixed(1));
+
+  let qr = null;
+  let intervalMs = 20000;
+  let tickHandle = null;
+  let msLeft = 0;
+  let running = false;
+  let paused = false;
+  let history = [];
+
+  const CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no 0/O/1/I
+  function genToken(){
+    let t = '';
+    for(let i=0;i<6;i++) t += CHARS[Math.floor(Math.random()*CHARS.length)];
+    return t;
+  }
+
+  function buildPayload(token){
+    const tmpl = urlTemplate.value.trim();
+    if(!tmpl) return token;
+    return tmpl.replace(/CODE/g, token);
+  }
+
+  function renderQR(token){
+    qrbox.innerHTML = '';
+    qr = new QRCode(qrbox, {
+      text: buildPayload(token),
+      width: 260,
+      height: 260,
+      colorDark: '#0B0F14',
+      colorLight: '#ffffff',
+      correctLevel: QRCode.CorrectLevel.M
+    });
+  }
+
+  function logToken(token){
+    const now = new Date();
+    const hh = String(now.getHours()).padStart(2,'0');
+    const mm = String(now.getMinutes()).padStart(2,'0');
+    const ss = String(now.getSeconds()).padStart(2,'0');
+    history.push({time: `${hh}:${mm}:${ss}`, token});
+    renderLog();
+  }
+
+  function renderLog(){
+    if(history.length === 0){
+      logWrap.innerHTML = '<div class="log-empty">Codes generated this session will appear here.</div>';
+      copyLogBtn.disabled = true;
+      return;
+    }
+    copyLogBtn.disabled = false;
+    let rows = history.slice().reverse().map(h =>
+      `<tr><td>${h.time}</td><td>${h.token}</td></tr>`
+    ).join('');
+    logWrap.innerHTML = `<table><thead><tr><th>Time</th><th>Code</th></tr></thead><tbody>${rows}</tbody></table>`;
+  }
+
+  function newToken(){
+    const t = genToken();
+    tokenDisplay.textContent = t;
+    renderQR(t);
+    logToken(t);
+    msLeft = intervalMs;
+  }
+
+  function tick(){
+    if(!running || paused) return;
+    msLeft -= 1000;
+    if(msLeft <= 0){
+      newToken();
+    }
+    secsLeft.textContent = Math.max(0, Math.round(msLeft/1000));
+    const frac = msLeft / intervalMs;
+    ringFg.style.strokeDashoffset = (CIRC * (1-frac)).toFixed(1);
+    ringFg.style.stroke = frac < 0.2 ? 'var(--danger)' : (frac < 0.5 ? 'var(--warn)' : 'var(--accent)');
+  }
+
+  function start(){
+    intervalMs = parseInt(intervalSelect.value,10) * 1000;
+    courseLabel.textContent = courseInput.value.trim() || '— unnamed course —';
+    courseInput.disabled = true;
+    intervalSelect.disabled = true;
+    urlTemplate.disabled = true;
+    running = true;
+    paused = false;
+    newToken();
+    tickHandle = setInterval(tick, 1000);
+    statusLine.innerHTML = 'LIVE · code refreshing · <b>do not screenshot ahead</b>';
+    startBtn.disabled = true;
+    pauseBtn.disabled = false;
+    stopBtn.disabled = false;
+  }
+
+  function togglePause(){
+    paused = !paused;
+    pauseBtn.textContent = paused ? 'Resume' : 'Pause';
+    statusLine.innerHTML = paused ? 'PAUSED' : 'LIVE · code refreshing · <b>do not screenshot ahead</b>';
+  }
+
+  function stop(){
+    running = false;
+    paused = false;
+    clearInterval(tickHandle);
+    qrbox.innerHTML = '';
+    tokenDisplay.textContent = '——————';
+    secsLeft.textContent = '--';
+    ringFg.style.strokeDashoffset = '0';
+    ringFg.style.stroke = 'var(--accent)';
+    statusLine.textContent = 'STOPPED · session log preserved below';
+    startBtn.disabled = false;
+    pauseBtn.disabled = true;
+    pauseBtn.textContent = 'Pause';
+    stopBtn.disabled = true;
+    courseInput.disabled = false;
+    intervalSelect.disabled = false;
+    urlTemplate.disabled = false;
+  }
+
+  copySetupBtn.addEventListener('click', () => {
+    const params = new URLSearchParams();
+    if(courseInput.value.trim()) params.set('course', courseInput.value.trim());
+    params.set('interval', intervalSelect.value);
+    if(urlTemplate.value.trim()) params.set('form', urlTemplate.value.trim());
+    const url = window.location.origin + window.location.pathname + '?' + params.toString();
+    navigator.clipboard.writeText(url).then(() => {
+      const orig = copySetupBtn.textContent;
+      copySetupBtn.textContent = 'Copied!';
+      setTimeout(() => copySetupBtn.textContent = orig, 1400);
+    });
+  });
+
+  copyLogBtn.addEventListener('click', () => {
+    const csv = 'time,code\n' + history.map(h => `${h.time},${h.token}`).join('\n');
+    navigator.clipboard.writeText(csv).then(() => {
+      const orig = copyLogBtn.textContent;
+      copyLogBtn.textContent = 'Copied!';
+      setTimeout(() => copyLogBtn.textContent = orig, 1400);
+    });
+  });
+
+  startBtn.addEventListener('click', start);
+  pauseBtn.addEventListener('click', togglePause);
+  stopBtn.addEventListener('click', stop);
+})();
+</script>
+</body>
+</html>
